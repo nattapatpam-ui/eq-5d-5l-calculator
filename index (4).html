@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EQ-5D-5L | เครื่องคำนวณคะแนน</title>
+<style>
+:root{--navy:#16324f;--teal:#167d8d;--bg:#f3f7fa;--ink:#243447;--muted:#607286;--line:#dce5ec;--white:#fff}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;color:var(--ink);line-height:1.55}
+header{background:linear-gradient(125deg,var(--navy),var(--teal));color:#fff;padding:28px 18px}
+.wrap{max-width:920px;margin:auto;padding:0 16px}h1{font-size:clamp(1.45rem,4vw,2.1rem);margin:0 0 6px}header p{margin:0;opacity:.92}
+main{padding:22px 0 40px}.card{background:var(--white);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 5px 18px rgba(22,50,79,.05)}
+h2{font-size:1.15rem;margin:0 0 12px;color:var(--navy)}.sub{color:var(--muted);font-size:.93rem;margin-top:-4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.field label{display:block;font-weight:650;margin-bottom:5px}.field input,.field select{width:100%;padding:11px;border:1px solid #bdcbd7;border-radius:9px;font:inherit;background:#fff;color:var(--ink)}
+.dimension{border:1px solid var(--line);border-radius:12px;padding:14px;margin:12px 0}.dimension legend{font-weight:750;color:var(--navy);padding:0 5px}.hint{font-size:.88rem;color:var(--muted);margin:2px 0 8px}
+.levels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px}.level{border:1px solid var(--line);border-radius:9px;padding:8px 4px;text-align:center;font-size:.88rem;cursor:pointer}.level input{display:block;margin:0 auto 5px;accent-color:var(--teal)}.level:has(input:checked){background:#e7f5f6;border-color:var(--teal);font-weight:700}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}.primary{background:var(--teal);color:white}.secondary{background:#e8eef3;color:var(--navy)}
+.result{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}.metric{background:#f5f9fb;border:1px solid var(--line);border-radius:12px;padding:14px}.metric .label{font-size:.88rem;color:var(--muted)}.metric .value{font-size:1.7rem;font-weight:800;color:var(--navy);overflow-wrap:anywhere}.warning{background:#fff8e8;border-left:4px solid #d89b21;padding:12px 14px;border-radius:8px;font-size:.92rem}.ok{color:#146b4a}.small{font-size:.88rem;color:var(--muted)}footer{padding:0 0 28px;color:var(--muted);font-size:.85rem}
+@media(max-width:520px){.card{padding:15px}.levels{gap:4px}.level{font-size:.76rem;padding:7px 2px}.level span{display:block}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1>EQ-5D-5L — เครื่องคำนวณคะแนน</h1><p>บันทึก health state profile และคำนวณ Thai EQ-5D-5L index value</p></div></header>
+<main class="wrap">
+<section class="card">
+<h2>1. ข้อมูลผู้ประเมิน (ไม่บังคับ)</h2>
+<div class="grid">
+<div class="field"><label for="patient">รหัสผู้ป่วย/รหัสแบบประเมิน</label><input id="patient" placeholder="เช่น PT001" autocomplete="off"></div>
+<div class="field"><label for="date">วันที่ประเมิน</label><input id="date" type="date"></div>
+<div class="field"><label for="vas">EQ VAS (0–100) — ถ้ามีในแบบประเมิน</label><input id="vas" type="number" min="0" max="100" placeholder="0–100"></div>
+</div>
+<p class="small">EQ VAS เป็นคะแนนการประเมินสุขภาพด้วยตนเอง แยกจาก index value และไม่นำมารวมในสูตร index</p>
+</section>
+<section class="card">
+<h2>2. เลือกระดับปัญหาในแต่ละมิติ</h2>
+<p class="sub">เลือก 1 ระดับต่อมิติ ตามคำตอบของผู้ตอบแบบสอบถามฉบับที่ได้รับอนุญาตให้ใช้</p>
+<form id="eqform">
+<div id="dimensions"></div>
+<div class="actions"><button class="primary" type="submit">คำนวณคะแนน</button><button class="secondary" type="button" id="reset">ล้างคำตอบ</button><button class="secondary" type="button" id="copy">คัดลอกผลลัพธ์</button></div>
+</form>
+</section>
+<section class="card" id="results" aria-live="polite">
+<h2>3. ผลการคำนวณ</h2>
+<div class="result">
+<div class="metric"><div class="label">Health state profile</div><div class="value" id="profile">—</div></div>
+<div class="metric"><div class="label">Thai EQ-5D-5L index value</div><div class="value" id="index">—</div></div>
+<div class="metric"><div class="label">EQ VAS (ถ้ากรอก)</div><div class="value" id="vasout">—</div></div>
+</div>
+<p id="interpret" class="small">เลือกคำตอบครบทั้ง 5 มิติก่อน แล้วกด “คำนวณคะแนน”</p>
+<div class="warning"><strong>ข้อควรทราบ:</strong> index value ไม่ใช่ร้อยละ และอาจติดลบได้ตาม Thai value set การแปลผลควรดูบริบทและใช้คะแนนที่คำนวณจาก value set เดียวกันในการเปรียบเทียบ</div>
+</section>
+<section class="card">
+<h2>หลักการคิดคะแนน</h2>
+<p>สร้างรหัสสุขภาพ 5 หลักตามลำดับ <strong>Mobility – Self-care – Usual activities – Pain/Discomfort – Anxiety/Depression</strong> โดยแต่ละหลักเป็นระดับ 1–5 (1 = ไม่มีปัญหา, 5 = มีปัญหารุนแรงที่สุด) จากนั้นคำนวณด้วย Thai EQ-5D-5L value set:</p>
+<p><strong>Index value = 1 − ผลรวมค่าน้ำหนักลดลง (decrements) ของระดับที่เลือกทั้ง 5 มิติ</strong></p>
+<p class="small">ระดับ 1 มี decrement เท่ากับ 0 ทุกมิติ ส่วนระดับ 2–5 ใช้ค่าน้ำหนักตามตาราง Thai value set ที่ฝังไว้ในเครื่องคำนวณนี้</p>
+<div class="warning">เครื่องมือนี้เป็นตัวช่วยคำนวณเพื่อการศึกษา/ตรวจสอบ ไม่ใช่แบบสอบถามฉบับทางการ และไม่ได้จัดเก็บข้อมูลลงฐานข้อมูล กรุณาตรวจสอบสิทธิ์การใช้แบบสอบถาม EQ-5D-5L กับ EuroQol ก่อนนำไปใช้จริงหรือทำวิจัย</div>
+</section>
+<section class="card">
+<h2>แหล่งอ้างอิง</h2>
+<ol>
+<li>Pattanaphesaj J, et al. <em>The EQ-5D-5L Valuation study in Thailand.</em> Expert Review of Pharmacoeconomics &amp; Outcomes Research. 2018;18(5):551–558. <a href="https://doi.org/10.1080/14737167.2018.1494574" target="_blank" rel="noopener">https://doi.org/10.1080/14737167.2018.1494574</a></li>
+<li>EuroQol Research Foundation. <em>EQ-5D-5L User Guide</em>. <a href="https://euroqol.org/wp-content/uploads/2025/01/EQ-5D-5LUserguide-23-07.pdf" target="_blank" rel="noopener">เปิดคู่มือ</a></li>
+<li>EuroQol. <em>Value sets for scoring the EQ-5D.</em> <a href="https://euroqol-information.org/information-and-support/resources/value-sets/" target="_blank" rel="noopener">หน้า value sets และเครื่องมือคำนวณ</a></li>
+<li>NCBI Bookshelf. <em>Overview of EQ-5D-5L value set for Thailand.</em> <a href="https://www.ncbi.nlm.nih.gov/books/NBK589305/table/ch4.Tab29/" target="_blank" rel="noopener">ตารางค่าน้ำหนักและตัวอย่างการคิดคะแนน</a></li>
+</ol>
+</section>
+</main>
+<footer class="wrap">ทำงานภายในเบราว์เซอร์เท่านั้น ข้อมูลที่กรอกจะไม่ถูกส่งออกจากหน้านี้โดยอัตโนมัติ</footer>
+<script>
+const dims = [
+ {key:"MO",name:"1. การเคลื่อนไหว (Mobility)",desc:"การเดิน/เคลื่อนที่",w:[0,.066,.087,.211,.371]},
+ {key:"SC",name:"2. การดูแลตนเอง (Self-care)",desc:"การอาบน้ำหรือแต่งตัว",w:[0,.058,.071,.193,.250]},
+ {key:"UA",name:"3. กิจกรรมที่ทำเป็นประจำ (Usual activities)",desc:"เช่น งาน การเรียน งานบ้าน กิจกรรมครอบครัวหรือเวลาว่าง",w:[0,.058,.071,.154,.248]},
+ {key:"PD",name:"4. อาการเจ็บปวด/ไม่สุขสบาย (Pain/Discomfort)",desc:"ความเจ็บปวดหรือความไม่สบายทางร่างกาย",w:[0,.056,.067,.207,.256]},
+ {key:"AD",name:"5. ความวิตกกังวล/ซึมเศร้า (Anxiety/Depression)",desc:"ความกังวลหรือความรู้สึกซึมเศร้า",w:[0,.058,.096,.233,.295]}
+];
+const levelNames=["ไม่มีปัญหา","มีปัญหาเล็กน้อย","มีปัญหาปานกลาง","มีปัญหารุนแรง","มีปัญหารุนแรงมาก"];
+const holder=document.getElementById("dimensions");
+dims.forEach((d,i)=>{
+ const fs=document.createElement("fieldset");fs.className="dimension";
+ let s=`<legend>${d.name}</legend><p class="hint">${d.desc}</p><div class="levels">`;
+ for(let n=1;n<=5;n++) s+=`<label class="level"><input type="radio" name="${d.key}" value="${n}" ${n===1?"":" "}><span>ระดับ ${n}</span><span>${levelNames[n-1]}</span></label>`;
+ s+="</div>";fs.innerHTML=s;holder.appendChild(fs);
+});
+function calculate(){
+ const vals=[];
+ for(const d of dims){const el=document.querySelector(`input[name="${d.key}"]:checked`);if(!el){alert("กรุณาเลือกคำตอบให้ครบทั้ง 5 มิติ");return null;}vals.push(Number(el.value));}
+ const profile=vals.join("");
+ const total=vals.reduce((sum,v,i)=>sum+dims[i].w[v-1],0);
+ const index=1-total;
+ document.getElementById("profile").textContent=profile;
+ document.getElementById("index").textContent=index.toFixed(4);
+ const vas=document.getElementById("vas").value;
+ document.getElementById("vasout").textContent=vas===""?"—":`${Number(vas)}/100`;
+ document.getElementById("interpret").textContent=`รหัส ${profile}: หักค่าน้ำหนักรวม ${total.toFixed(3)} จาก 1.000 ได้ index value ${index.toFixed(4)}. ค่าที่สูงกว่าโดยทั่วไปสะท้อนสุขภาพที่ดีกว่าตาม Thai value set; EQ VAS รายงานแยกต่างหาก`;
+ return {profile,index:index.toFixed(4),vas:vas===""?"ไม่ระบุ":vas,patient:document.getElementById("patient").value||"ไม่ระบุ",date:document.getElementById("date").value||"ไม่ระบุ"};
+}
+document.getElementById("eqform").addEventListener("submit",e=>{e.preventDefault();calculate();});
+document.getElementById("reset").addEventListener("click",()=>{document.getElementById("eqform").reset();["profile","index","vasout"].forEach(id=>document.getElementById(id).textContent="—");document.getElementById("interpret").textContent="เลือกคำตอบครบทั้ง 5 มิติก่อน แล้วกด “คำนวณคะแนน”";});
+document.getElementById("copy").addEventListener("click",async()=>{const r=calculate();if(!r)return;const text=`EQ-5D-5L\nรหัสผู้ป่วย: ${r.patient}\nวันที่: ${r.date}\nHealth state profile: ${r.profile}\nThai index value: ${r.index}\nEQ VAS: ${r.vas}`;try{await navigator.clipboard.writeText(text);alert("คัดลอกผลลัพธ์แล้ว");}catch(e){prompt("คัดลอกข้อความด้านล่าง",text);}});
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+</script>
+</body></html>
